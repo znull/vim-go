@@ -59,7 +59,7 @@ function! go#lint#Gometa(bang, autosave, ...) abort
   if l:metalinter == 'golangci-lint'
     let l:deadline = go#config#MetalinterDeadline()
     if l:deadline != ''
-      let l:cmd += ["--deadline=" . l:deadline]
+      let l:cmd += ["--timeout=" . l:deadline]
     endif
   endif
 
@@ -396,7 +396,11 @@ function! s:lint_job(metalinter, args, bang, autosave)
   if a:autosave
     let l:opts.for = 'GoMetaLinterAutoSave'
     " s:metalinterautosavecomplete is needed for staticcheck and golangci-lint
-    let l:opts.complete = funcref('s:metalinterautosavecomplete', [a:metalinter, expand('%:p:t')])
+    if a:metalinter == 'golangci-lint'
+      let l:opts.complete = funcref('s:metalinterautosavecomplete', [a:metalinter, expand('%:p')])
+    else
+      let l:opts.complete = funcref('s:metalinterautosavecomplete', [a:metalinter, expand('%:p:t')])
+    endif
     let l:opts.preserveerrors = funcref('s:preserveerrors', [a:autosave])
   endif
 
@@ -423,15 +427,13 @@ endfunction
 function! s:golangcilintcmd(bin_path, haslinter)
   let l:cmd = [a:bin_path]
   let l:cmd += ["run"]
-  let l:cmd += ["--print-issued-lines=false"]
+  let l:cmd += ["--show-stats=false"]
+  let l:cmd += ["--output.text.print-issued-lines=false"]
   let l:cmd += ['--build-tags', go#config#BuildTags()]
-  " do not use the default exclude patterns, because doing so causes golint
-  " problems about missing doc strings to be ignored and other things that
-  " golint identifies.
-  let l:cmd += ["--exclude-use-default=false"]
+  let l:cmd += ["--path-mode", "abs"]
 
   if a:haslinter
-    let l:cmd += ["--disable-all"]
+    let l:cmd += ["--default=none"]
   endif
 
   return l:cmd
